@@ -1,90 +1,91 @@
-import torch
+from easyAI import TwoPlayerGame, AI_Player, Human_Player, Negamax
 
 
-class TennisAI:
+class Player():
+
     def __init__(self):
-        self.name = "Blue"
+        self.points_left = 50
+        self.player_name = None
 
-    def get_bid(self, ball_position, player_points):
-        if ball_position == 0:
-            return min(player_points, 3)  # AI bids up to 3 points when ball is at center
-        elif ball_position > 0:
-            return min(player_points, 2)  # AI bids up to 2 points when ball is in opponent's court
-        else:
-            return 1  # AI bids 1 point when ball is in its own court
+    def make_move(self, bid):
+        self.points_left -= bid
 
-class Player:
-    def __init__(self, name):
-        self.name = name
 
-    def get_bid(self, player_points):
+class TennisGame(TwoPlayerGame):
+    def __init__(self, players=None):
+        self.ball_position = 0
+        self.players = players
+
+    def possible_moves(self):
+        moves = []
+        for i in range(0, 51):
+            moves.append(i)
+        return moves
+
+    def win(self):
+        return self.ball_position == -3 or self.ball_position == 3
+
+    def is_over(self):
+        return self.win()
+
+    def scoring(self):
+        return 100 if self.win() else 0
+
+    def get_bid(self, player_name, points_left):
         bid_awaiting = True
         while bid_awaiting:
-            bid = int(input(f"{self.name}, enter points to deduct from your {player_points}: "))
-            if bid < 0 or bid > player_points:
-                print(f"Sorry, you need to set points between 0 and {player_points}")
+            bid = int(input(f"{player_name}, enter points to deduct from your {points_left}: "))
+            if bid < 0 or bid > points_left:
+                print(f"Sorry, you need to set points between 0 and {points_left}")
             else:
                 bid_awaiting = False
         return bid
 
-class TennisGame:
-    def __init__(self):
-        self.ball_position = 0
-        self.blue_points = 50
-        self.red_points = 50
-        self.ai_player = TennisAI()
-        self.players = [self.ai_player, Player("Red")]
 
-    def ai_get_bid(self):
-        with torch.no_grad():
-            input_data = torch.tensor([self.ball_position, self.blue_points], dtype=torch.float32)
-            return int(round(self.ai_player(input_data).item()))
-
-    def move_ball(self, blue_bid, red_bid):
-        if blue_bid == red_bid:
-            new_position = self.ball_position
-        elif blue_bid > red_bid and self.ball_position >= 0:
-            new_position = -1
-        elif red_bid > blue_bid and self.ball_position <= 0:
-            new_position = 1
-        elif blue_bid > red_bid and self.ball_position < 0:
-            new_position = self.ball_position - 1
-        else:
-            new_position = self.ball_position + 1
-        return new_position
+        # if blue_bid == red_bid:
+        #     new_position = self.ball_position
+        # elif blue_bid > red_bid and self.ball_position >= 0:
+        #     new_position = -1
+        # elif red_bid > blue_bid and self.ball_position <= 0:
+        #     new_position = 1
+        # elif blue_bid > red_bid and self.ball_position < 0:
+        #     new_position = self.ball_position - 1
+        # else:
+        #     new_position = self.ball_position + 1
+        #
+        # return new_position
 
     def play_game(self):
         game_on = True
         winner = ""
         while game_on:
-            # Blue (AI) makes a move
-            blue_bid = self.players[0].get_bid(self.ball_position, self.blue_points)
+            for i, player_name in enumerate(["Blue", "Red"]):
+                if self.players[i] == "human":
+                    bid = self.get_bid(player_name, self.blue_points if i == 0 else self.red_points)
+                else:
+                    bid = self.players[i].get_bid(self)
 
-            # Red (human) makes a move
-            red_bid = self.players[1].get_bid(self.red_points)
+                self.ball_position = self.move_ball(bid, 0) if i == 0 else self.move_ball(0, bid)
 
-            # Print current bids
-            print(f"Blue bids: {blue_bid}   Red bids: {red_bid}")
+                self.blue_points -= bid if i == 0 else 0
+                self.red_points -= bid if i == 1 else 0
 
-            # Determine ball position and update scores
-            self.ball_position = self.move_ball(blue_bid, red_bid)
-            self.blue_points -= blue_bid
-            self.red_points -= red_bid
+                print(
+                    f"Blue Score: {self.blue_points} points   Red Score: {self.red_points} points   Ball: {self.ball_position}")
 
-            # Print current scores and ball position
-            print(
-                f"Blue Score: {self.blue_points} points   Red Score: {self.red_points} points   Ball: {self.ball_position}")
-
-            # Check if game is over
-            if self.blue_points <= 0 or self.red_points <= 0 or self.ball_position > 2 or self.ball_position < -2:
-                winner = "Red" if self.blue_points <= 0 or self.ball_position > 2 else "Blue"
-                game_on = False
+                if self.blue_points <= 0 or self.red_points <= 0 or self.ball_position > 2 or self.ball_position < -2:
+                    winner = "Red" if self.blue_points <= 0 or self.ball_position > 2 else "Blue"
+                    game_on = False
+                    break
 
         print(f"\nGame over! {winner} wins!")
 
+
 def play_game():
-    game = TennisGame()
+    ai = Negamax(10)
+    game = TennisGame([AI_Player(ai), Human_Player()])
     game.play_game()
+
 
 # Start the game
 play_game()
